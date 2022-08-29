@@ -3,8 +3,25 @@
 #include <string.h>
 #include <time.h>
 
+#define ALLVALUES	-1
+
+//Month to interger definitions
+#define JANUARY		0
+#define FEBUARY		1
+#define MARCH		2
+#define APRIL		3
+#define MAY		4
+#define JUNE		5
+#define JULY		6
+#define AUGUST		7
+#define SEPTEMBER	8
+#define OCTOBER		9
+#define NOVEMBER 	10
+#define DECEMBER 	11
+
+
+
 //Courtesy of Chris.McDonald
-//Month is inputedd so 0 = january, 1 = febuary,... etc
 //Gets first day of the month in 2022. 0 = Sunday, 1 = Monday, ... , 6 = Saturday
 int firstDayOfMonth(int month) {
 	struct tm tm;
@@ -22,17 +39,31 @@ int firstDayOfMonth(int month) {
 
 //Month starts from 0. No error handling
 int numDaysInMonth(int month) {
-	if (month == 1) { //Month equals Febuary
+	if (month == FEBUARY) {
 		return 28;
-	} else if (month == 3 || month == 5 || month == 8 || month == 10) {
+	} else if (month == APRIL || month == JUNE || month == SEPTEMBER || month == NOVEMBER) {
 		return 30;
 	} else {
 		return 31;
 	}
 }
 
+int numDaysOfTypeInMonth(int month, int dayType) {
+	int firstDayType = firstDayOfMonth(month);
+	int daysInMonth = numDaysInMonth(month);
+
+	int firstWeekDayDate;
+	if (firstDayType <= dayType) {
+		firstWeekDayDate = dayType - firstDayType;
+	} else {
+		firstWeekDayDate = 7 - (dayType - firstDayType);
+	}
+
+	return (daysInMonth - firstWeekDayDate) / 7;
+}
+
 int howManyTimesaMonth(int monthProvided, int minutes, int hours, int days, int months, int weekdays) {
-	if (months != monthProvided || monthProvided != -1) {
+	if (!(months == monthProvided || months == -1)) {
 		return 0;
 	}
 	
@@ -47,22 +78,7 @@ int howManyTimesaMonth(int monthProvided, int minutes, int hours, int days, int 
 		times *= numDaysInMonth(monthProvided);
 	} else if (days == -1) {
 		//Count the number of weekdays within the month, and multiply times by this
-
-		int firstDay = firstDayOfMonth(monthProvided);
-		int daysInMonth = numDaysInMonth(monthProvided);
-		int firstWeekDay;
-		if (firstDay < weekdays) {
-			firstWeekDay = weekdays - firstDay;
-		} else {
-			firstWeekDay = 7 - (weekdays - firstDay);
-		}
-	
-		int count = 1;
-		for (int i = firstWeekDay; i < daysInMonth; i += 7) {
-			count++;
-		}
-
-		times *= count;
+		times *= numDaysOfTypeInMonth(months, weekdays);
 
 	} else if (weekdays == -1) {
 		times *= 1; //Just goes for one day
@@ -80,7 +96,7 @@ int howManyTimesaMonth(int monthProvided, int minutes, int hours, int days, int 
 
 int main(int argcount, char *argvalue[]) {
 	
-	printf("%i", firstDayOfMonth(atoi(argvalue[1])));
+	printf("%i", howManyTimesaMonth(atoi(argvalue[1]), atoi(argvalue[2]), atoi(argvalue[3]), atoi(argvalue[4]), atoi(argvalue[5]), atoi(argvalue[6])));
 	//printf(%i, howManyTimesAMonth(argvalue[1], argvalue[2], argvalue[3], argvalue[4], argvalue[5], argvalue[6]));
 
 	exit(EXIT_SUCCESS);
