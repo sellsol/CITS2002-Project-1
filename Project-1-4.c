@@ -8,7 +8,9 @@
 #define MAX_CMDNAME_LEN 	41
 #define MAX_FILELINE_LEN	101
 
+//Converts months to integer values for passing
 int monthToInt(char *monthname) {
+	//This feels like it should be passed outside of the function
 	if (isalpha(monthname == 0)) {
 		return atoi(monthname);
 	}
