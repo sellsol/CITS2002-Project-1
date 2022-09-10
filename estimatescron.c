@@ -38,7 +38,7 @@ int my_atoi(char *datastring, int datafield) {
 		return ALLVALUES;
 	} else {
 		switch (datafield) {
-			case 1:;
+			case 1:
 			       //Months field
 			       return monthToInt(datastring);
 			
@@ -172,10 +172,20 @@ struct {
 	int runtime;
 } fileinfo[MAX_CMDLINES];
 
+int commandsNum = 0;
+
+void GetRunsInMonth(int* output, int month) {
+	for (int i = 0; i < commandsNum; i++) {
+		output[i] = howManyTimesaMonth(month, fileinfo[i].minute, fileinfo[i].hour, fileinfo[i].date, fileinfo[i].month, fileinfo[i].weekday);
+	}
+}
+
+//Gets a file from the filename and reads it as either a crontab file or an estimates file
 void readfiles(char *filename, int filetype) {
 	FILE *dict = fopen(filename, "r");
 	if (dict == NULL) {
 		//Error handling: cannot open file
+		//Should use stderr
 		printf("Error: cannot open '%s.'\n", filename);
 		exit(EXIT_FAILURE);
 	}
@@ -228,16 +238,43 @@ void readfiles(char *filename, int filetype) {
 		}
 		i++;
 	}
+	commandsNum = i;
+
 	fclose(dict);
 }
 
+//Input: ./estimatecron <month> "crontab-file" "estimates-file"
+//Output: "mostExecutedCommand" <total-commands-invoked> <maximum-commands-running-at-point-in-time>
 int main(int argcount, char *argvalue[]) {
-	
+	if (argcount != 4) {
+		//print stderr
+		exit(EXIT_FAILURE);
+	}
+
+	//Since my_atoi checks for '*', and we shouldn't need to for this input, should we use this function?
+	int month = my_atoi(argvalue[1], 1);
+
+	//Estimates should be read first, then the rest of the file can be read and used 
+
 	readfiles(argvalue[2], 1);
 	readfiles(argvalue[3], 2);
 
-	//printf("%i", howManyTimesaMonth(atoi(argvalue[1]), atoi(argvalue[2]), atoi(argvalue[3]), atoi(argvalue[4]), atoi(argvalue[5]), atoi(argvalue[6])));
-	//printf(%i, howManyTimesAMonth(argvalue[1], argvalue[2], argvalue[3], argvalue[4], argvalue[5], argvalue[6]));
+	//What's the good pointer naming practice? I think chris mentioned it somewhere
+	int runs[MAX_CMDLINES];
+
+	GetRunsInMonth(runs, month);
+
+	int max = 0;
+	int sumOfRuns = 0;
+	for (int i = 0; i < commandsNum; i++) {
+		printf("%d \n", runs[i]);
+		if (runs[i] > runs[max]) {
+			max = i;
+		}
+		sumOfRuns += runs[i];
+	}
+
+	printf("%d : %d", max, sumOfRuns);
 
 	exit(EXIT_SUCCESS);
 }

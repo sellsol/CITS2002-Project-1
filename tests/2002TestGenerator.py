@@ -109,7 +109,7 @@ def GenerateProcessesFile():
          if (isAll):
             line += "*"
          else:
-            line += str(int(rn.random() * 59))
+            line += str(int(rn.random() * 23))
 
          line += " "
             
@@ -133,7 +133,7 @@ def GenerateProcessesFile():
          if (isAll):
             line += "*"
          else:
-            line += str(int(rn.random() * numDays))
+            line += str(int(rn.random() * (numDays - 1)) + 1)
 
          line += " " + month + " "
 
