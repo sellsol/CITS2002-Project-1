@@ -6,7 +6,7 @@
 #include <ctype.h>
 //You're going to have to trim these libraries later, but this is what the old project had
 
-#define ALLVALUES	-1
+#define ALLVALUES		-1
 
 #define MAX_CMDLINES		20
 #define MAX_CMDNAME_LEN		41
@@ -14,7 +14,6 @@
 
 //Tells us how many processes are stored in fileinfo
 int fileinfoLength;
-int currentRunningProcesses;
 
 struct {
 	int minute;
@@ -26,19 +25,14 @@ struct {
 	int runtime;
 } fileinfo[MAX_CMDLINES];
 
-//Struct array of all running processes
-struct {
-	int startTime;
-	int endTime;
-} processes[MAX_CMDLINES];
+int processEndTimes[MAX_CMDLINES];
 
 //Returns whether it succeeded or failed to find an available space to put the process
-int invokeProcess(int startTime, int endTime) {
+int invokeProcess(int endTime) {
 	//Find available space for the process to run
 	for (int i = 0; i < MAX_CMDLINES; i++) {
-		if (processes[i].endTime == 0) { //Setting the end time to 0 indicates the process is invalid
-			processes[i].startTime = startTime;
-			processes[i].endTime = endTime;
+		if (processEndTimes[i] == -1) { //Setting the end time to -1 indicates the process is invalid
+			processEndTimes[i] = endTime;
 			return 1;
 		}
 	}
@@ -48,7 +42,7 @@ int invokeProcess(int startTime, int endTime) {
 int weekdayToInt(char *day_name) {
 	char days[7][3] = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
 	for (int dayNum = 0; dayNum < 7; dayNum++) {
-		if (strcmp(days[dayNum], day_num)) {
+		if (strcmp(days[dayNum], day_name)) {
 			return dayNum;
 		}
 	}
@@ -194,89 +188,60 @@ int IsOnTheSameHour(int minute1, int minute2) {
 	return (hour1 == hour2);
 }
 
-//For now, assume currentMinute is the time the process last ran
-int GetProcessNextStartingTime(int currentMinute, int processNum) {
-	//Start by getting the next day that the process will start on
-
-	if (fileinfo.date == '*' && fileinfo.weekday == '*') {
-		//We need to check if there exists a minute this process can run which is greater than the current minute
-
-		if (fileinfo.hour == '*' && fileinfo.minute == '*') {
-			//If the process runs every minute of every hour of every day, next minute it should run again
-			return currentMinute + 1;
-		} else if (fileinfo.hour == '*') {
-			//Like above, the process should run on the next hour
-			return currentMinute + 60;
-		} else if (fileinfo.minute == '*') {
-			//We need to check if the next hour 
-			if (IsOnTheSameHour(currentMinute, currentMinute + 1)) {
-				return currentMinute + 1;
+void NewGetNextStartingTime(struct tm currentTime, int processNum, int month) {
+	int isDone = 0;
+	while (isDone) {
+		if (fileinfo[processNum].minute != '*' && currentTime.tm_min != fileinfo[processNum].minute) {
+			if (currentTime.tm_min > fileinfo[processNum].minute) {
+				currentTime.tm_hour += 1;
 			}
-			//Otherwise we're on the last minute of the hour
-			return currentMinute - 59 + (60 * 24);
-		} else {
-			//Since the process only runs once per day, we need to find the next day it runs. We know this will be tomorrow, so we can add one day
-			return currentMinute + (60 * 24);
+			currentTime.tm_min = fileinfo[processNum].minute;
 		}
-	} else if (fileinfo.date == '*') {
-		//The process will run on the next week
-
-		if (fileinfo.hour == '*' && fileinfo.minute == '*') {
-			//Runs every minute. We need to make sure the next minute is not tomorrow
-			if (IsOnTheSameDay(currentMinute, currentMinute + 1)) {
-				//Because it's only one day a week, it will run next week
-				return currentMinute + 1;
+		if (fileinfo[processNum].hour != '*' && currentTime.tm_hour != fileinfo[processNum].hour) {
+			if (currentTime.tm_hour > fileinfo[processNum].hour) {
+				currentTime.tm_hour = fileinfo[processNum].hour;
+				currentTime.tm_mday += 1;
+				currentTime.tm_min = 0;
+				continue;
 			}
-			return currentMinute + (60 * 24 * 7);
-		} else if (fileinfo.hour == '*') {
-			//Runs on every hour of a specified minute of a specified day of the week
-			if (IsOnTheSameDay(currentMinute, currentMinute + 60)) {
-				return currentMinute + 60;
-			}
-			return currentMinute + (60 * 24 * 7);
-		} else if (fileinfo.minute == '*'){
-			//Runs on every minute of a specifed hour of a specified day of the week
-			if (IsOnTheSameHour(currentMinute, currentMinute + 1)) {
-				return currentMinute + 1;
-			}
-			return currentMinute - 59 + (60 * 24 * 7);
-		} else {
-			//Runs on a specified hour, specified minute, on a specified day
-			return currentMinute + (60 * 24 * 7);
+			currentTime.tm_hour = fileinfo[processNum].hour;
+			currentTime.tm_min = 0;
+			continue;
 		}
-	} else if (fileinfo.weekday == '*') {
-		//This program runs on a specific day
-		
-		if (fileinfo.hour == '*' && fileinfo.minute == '*') {
-			//Runs only on a specific date
-			if (IsOnTheSameDay(currentMinute, currentMinute + 1)) {
-				return currentMinute + 1;
-			}
-		} else if (fileinfo.hour == '*') {
-			//Runs on a specific minute every hour for the day
-			if (IsOnTheSameDay(currentMinute, currentMinute + 60)) {
-				return currentMinute + 60;
-			}
-		} else if (fileinfo.minute == '*') {
-			if (IsOnTheSameHour(currentMinute, currentMinute + 1)) {
-				return currentMinute + 1;
-			}
+		if (fileinfo[processNum].weekday != '*' && currentTime.tm_wday != fileinfo[processNum].weekday) {
+			int deltaDays = fileinfo[processNum].weekday - currentTime.tm_wday;
+			if (deltaDays < 0) { deltaDays += 7; }
+			currentTime.tm_mday += deltaDays;
+			currentTime.tm_hour = 0;
+			currentTime.tm_min = 0;
+			continue;
 		}
-		//If none of the above apply, the program will only run once
-	}
-	//This program only runs once in this month, return no
-	return 100000;
-
+		if (fileinfo[processNum].date != '*' && currentTime.tm_mday != fileinfo[processNum].date) {
+			if (currentTime.tm_mday > fileinfo[processNum].date || GetDaysInMonth(month) < currentTime.tm_mday) {
+				currentTime.tm_mon += 1;
+				currentTime.tm_mday = 1;
+				currentTime.tm_hour = 0;
+				currentTime.tm_min = 0;
+				continue;
+			}
+			currentTime.tm_mday = fileinfo[processNum].date;
+			currentTime.tm_hour = 0;
+			currentTime.tm_min =0;
+			continue;
+		}
+		isDone = 1;
+	}	
 }
 
-int GetNextStartingTime() {
-	
-}
-
+//Invalid end times are -1. -1 is returned if there are no processes running
 int GetNextEndingTime() {
-	for (int i = 0; i < MAX_CMD_LENGTH; i++) {
-		
+	int min = -1;
+	for (int i = 0; i < MAX_CMDLINES; i++) {
+		if (min == -1 || processEndTimes[i] < min) {
+			min = i;
+		}
 	}
+	return min;
 }
 
 int main(int argcount, char *argvalue[]) {
@@ -285,22 +250,41 @@ int main(int argcount, char *argvalue[]) {
 		exit(EXIT_FAILURE);
 	}
 
+	readfiles(argvalue[2], 1);
+	readfiles(argvalue[3], 2);
+
 	int month = my_atoi(argvalue[1], 1);
 	int minutesInMonth = 60 * 24 * GetDaysInMonth(month);
 
-	currentRunningProcesses = 0;
+	int currentRunningProcesses = 0;
+	int maxRunningProcesses = 0;
+
+	/*
+	int currentTime = 0;
 	while true {
 		//Get next starting process/Get next ending process
-		//If current processes are 20, 
+		//If current processes are 20
+		
+		int nextEnding = GetNextEndingTime();
 
-		int nextEventTime = 0;
-
-		for (int i = 0; i < fileinfoLength; i++) {
-			//Get the start time
+		//There are too many processes running, one can only end
+		if (cuurentRunningProcesses == 20) {
+			//The next event is a process ending
+			currentTime = processEndTimes[i];
+			processEndTimes[i] = -1; //Kill process
+			currentRunningProcesses -= 1;
 		}
 
-		if (currentRunningProcesses == 20) {
-			
-		}
-	}
+		int nextStart = NewGetNextStartingTime();
+		//Make sure you account for the edge case where one program ends as another begins
+	}*/
+
+	struct tm currentTime;
+
+	currentTime.tm_min = 0;		currentTime.tm_hour = 0;	currentTime.tm_mday = 0;
+	currentTime.tm_mon = month;
+	
+	NewGetNextStartingTime(currentTime, 0, month);
+
+	printf("%d, %d, %d, %d, %d", currentTime.tm_min, currentTime.tm_hour, currentTime.tm_mday, currentTime.tm_mon, currentTime.tm_wday);
 }
