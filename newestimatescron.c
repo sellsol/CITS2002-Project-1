@@ -7,63 +7,40 @@
 //You're going to have to trim these libraries later, but this is what the old project had
 
 #define ALLVALUES		-1
+#define ERRORVAL		-2
 
 #define MAX_CMDLINES		20
 #define MAX_CMDNAME_LEN		41
 #define MAX_FILENAME_LEN	101
 
-//Tells us how many processes are stored in fileinfo
-int fileinfoLength;
-
-struct {
-	int minute;
-	int hour;
-	int date;
-	int month;
-	int weekday;
-	char name[MAX_CMDNAME_LEN];
-	int runtime;
-} fileinfo[MAX_CMDLINES];
-
-int processEndTimes[MAX_CMDLINES];
-
-//Returns whether it succeeded or failed to find an available space to put the process
-int invokeProcess(int endTime) {
-	//Find available space for the process to run
-	for (int i = 0; i < MAX_CMDLINES; i++) {
-		if (processEndTimes[i] == -1) { //Setting the end time to -1 indicates the process is invalid
-			processEndTimes[i] = endTime;
-			return i;
-		}
-	}
-	return -1;
-}
 //'weekday' is a bad way to decribe this, and vague. meed a better way to describe days of the week
 int weekdayToInt(char *day_name) {
-	char days[7][3] = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
+	char days[7][4] = {"sun\0", "mon\0", "tue\0", "wed\0", "thu\0", "fri\0", "sat\0"};
 	for (int dayNum = 0; dayNum < 7; dayNum++) {
 		if (strcmp(days[dayNum], day_name)) {
 			return dayNum;
 		}
 	}
 
-	return -2;
+	return ERRORVAL;
 }
 
 //Converts month string to int code
 int monthToInt(char *month_name) {
-	char months[12][3] = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
+	char months[12][4] = {"jan\0", "feb\0", "mar\0", "apr\0", "may\0", "jun\0", "jul\0", "aug\0", "sep\0", "oct\0", "nov\0", "dec\0"};
 	for (int monthNum = 0; monthNum < 12; monthNum++) {
+		printf("%s \n", months[monthNum]);
 		if (strcmp(months[monthNum], month_name) == 0) {
 			return monthNum;
 		}
 	}
+	printf("\n");
 
-	return -2;
+	return ERRORVAL;
 }
 
 //Get's the first weekday of the month
-int firstDayOfMonth(int month) {
+int firstDayOfMonth(int month) {	
 	struct tm tm;
 
 	memset(&tm, 0, sizeof(tm));
@@ -94,36 +71,74 @@ int GetDaysInMonth(int month) {
 	}
 }
 
-int my_atoi(char *datastring, int datafield) {
+//Converts a passed string of data into an integer form
+//The mode indicates that this string is a month/week, which pertains to how a string should be deciphered
+#define MODE_NONE 	0
+#define MODE_WEEK	1
+#define MODE_MONTH 	2
+
+
+int my_atoi(char *datastring, int mode) {
 	if (isdigit(datastring[0])) {
 		return atoi(datastring);
-	}
-
-	if (datastring[0] == '*') {
+	} else if (datastring[0] == '*') {
 		return ALLVALUES;
 	} else {
-		switch (datafield) {
-			case 1:
-				//Months field
-				return monthToInt(datastring);
-			case 2:
+		//At this point, convert a 3-char string to an integer based off the mode
+		switch (mode) {
+			case MODE_WEEK:
 				return weekdayToInt(datastring);
+			case MODE_MONTH:
+				return monthToInt(datastring);
+			default:
+				return ERRORVAL;
 		}
 	}
 }
 
-void readfiles(char *filename, int filetype) {
+//
+struct {
+	int minute;
+	int hour;
+	int date;
+	int month;
+	int weekday;
+	char name[MAX_CMDNAME_LEN];
+	int estimatesID;
+} crontabFile[MAX_CMDLINES];
+
+struct {
+	char name[MAX_CMDNAME_LEN];
+	int runtime;
+	int runcount;
+} estimatesFile[MAX_CMDLINES];
+
+//Returns whether it succeed or failed to find an available space to put the process
+int invokeProcess(int endTime, int *processEndTimes) {
+	//Find available space for the process to run
+	for (int i = 0; i < MAX_CMDLINES; i++) {
+		if (processEndTimes[i] == -1) {
+			processEndTimes[i] = endTime;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+#define CRONTABFILE		0
+#define ESTIMATESFILE		1
+
+int readfiles(char *filename, int filetype) {
 	FILE *dict = fopen(filename, "r");
 	if (dict == NULL) {
-		//Should use stderr
-		printf("error: cannot open '%s' \n", filename);
+		fprintf(stderr, "error: cannot open '%s'\n", filename);
 		exit(EXIT_FAILURE);
 	}
 
 	char line[MAX_FILENAME_LEN];
 	char *token;
 	
-	int i = 0;
+	int lineIndex = 0;
 	while (fgets(line, sizeof line, dict) != NULL) {
 		line[strcspn(line, "\r\n")] = 0;
 
@@ -140,102 +155,55 @@ void readfiles(char *filename, int filetype) {
 		}
 
 		switch (filetype) {
-			case 1:
-				fileinfo[i].minute = my_atoi(token, 0);
+			case CRONTABFILE:
+				crontabFile[lineIndex].minute = my_atoi(token, MODE_NONE);
 				token = strtok(NULL, " ");
-				fileinfo[i].hour = my_atoi(token, 0);
+				crontabFile[lineIndex].hour = my_atoi(token, MODE_NONE);
 				token = strtok(NULL, " ");
-				fileinfo[i].date = my_atoi(token, 0);
+				crontabFile[lineIndex].date = my_atoi(token, MODE_NONE);
 				token = strtok(NULL, " ");
-				fileinfo[i].month = my_atoi(token, 1);
+				crontabFile[lineIndex].month = my_atoi(token, MODE_MONTH);
 				token = strtok(NULL, " ");
-				fileinfo[i].weekday = my_atoi(token, 2);
+				crontabFile[lineIndex].weekday = my_atoi(token, MODE_WEEK);
 				token = strtok(NULL, " ");
-				strcpy(fileinfo[i].name, token);
-
-				fileinfoLength = sizeof(fileinfo)/sizeof(fileinfo[0]);
+				strcpy(crontabFile[lineIndex].name, token);
 				
+				//Test if there is any errors when reading the file
+				
+				if (crontabFile[lineIndex].minute == ERRORVAL ||
+					crontabFile[lineIndex].hour == ERRORVAL ||
+					crontabFile[lineIndex].date == ERRORVAL ||
+					crontabFile[lineIndex].month == ERRORVAL ||
+					crontabFile[lineIndex].weekday == ERRORVAL) {
+					
+					printf("%d %d %d %d %d", crontabFile[lineIndex].minute, crontabFile[lineIndex].hour, crontabFile[lineIndex].date,
+							crontabFile[lineIndex].month, crontabFile[lineIndex].weekday);	
+					fprintf(stderr, "Error reading non-comment line '%d': Make sure data is valid\n", lineIndex);
+					exit(EXIT_FAILURE);
+				}
+
 				break;
-			case 2:
-				timeEstimate = strtok(NULL, " ");
-				for (int i = 0; i < sizeof(fileinfo)/sizeof(fileinfo[0]); i++) {
-					if (strcmp(fileinfo[i].name, token) == 0) {
-						fileinfo[i].runtime = atoi(timeEstimate);
+			case ESTIMATESFILE:
+				strcpy(estimatesFile[lineIndex].name, token);
+				token = strtok(NULL, " ");
+				estimatesFile[lineIndex].runtime = atoi(timeEstimate);
+
+				for (int j = 0; j < sizeof(crontabFile)/sizeof(crontabFile[0]); j++) {
+					if (strcmp(crontabFile[lineIndex].name, token) == 0) {
+						crontabFile[j].estimatesID = lineIndex;
 					}
 				}
 				break;
 		}
-		i++;
+		lineIndex++;
 	}
-	fileinfoLength = i;
 
 	fclose(dict);
-}
-
-//Tests if two minutes are on the same day
-int IsOnTheSameDay(int minute1, int minute2) {
-	//Divide each minute value by 60 * 24 rounded down to get the number of days in the minute value
-	int day1 = minute1 / (60 * 24);
-	int day2 = minute2 / (60 * 24);
-
-	return (day1 == day2);
-}
-
-//Tests if two minutes are in the same hour
-int IsOnTheSameHour(int minute1, int minute2) {
-	int hour1 = minute1 / 60;
-	int hour2 = minute2 / 60;
-
-	return (hour1 == hour2);
-}
-
-void NewGetNextStartingTime(struct tm currentTime, int processNum, int month) {
-	int isDone = 0;
-	while (isDone) {
-		if (fileinfo[processNum].minute != '*' && currentTime.tm_min != fileinfo[processNum].minute) {
-			if (currentTime.tm_min > fileinfo[processNum].minute) {
-				currentTime.tm_hour += 1;
-			}
-			currentTime.tm_min = fileinfo[processNum].minute;
-		}
-		if (fileinfo[processNum].hour != '*' && currentTime.tm_hour != fileinfo[processNum].hour) {
-			if (currentTime.tm_hour > fileinfo[processNum].hour) {
-				currentTime.tm_hour = fileinfo[processNum].hour;
-				currentTime.tm_mday += 1;
-				currentTime.tm_min = 0;
-				continue;
-			}
-			currentTime.tm_hour = fileinfo[processNum].hour;
-			currentTime.tm_min = 0;
-			continue;
-		}
-		if (fileinfo[processNum].weekday != '*' && currentTime.tm_wday != fileinfo[processNum].weekday) {
-			int deltaDays = fileinfo[processNum].weekday - currentTime.tm_wday;
-			if (deltaDays < 0) { deltaDays += 7; }
-			currentTime.tm_mday += deltaDays;
-			currentTime.tm_hour = 0;
-			currentTime.tm_min = 0;
-			continue;
-		}
-		if (fileinfo[processNum].date != '*' && currentTime.tm_mday != fileinfo[processNum].date) {
-			if (currentTime.tm_mday > fileinfo[processNum].date || GetDaysInMonth(month) < currentTime.tm_mday) {
-				currentTime.tm_mon += 1;
-				currentTime.tm_mday = 1;
-				currentTime.tm_hour = 0;
-				currentTime.tm_min = 0;
-				continue;
-			}
-			currentTime.tm_mday = fileinfo[processNum].date;
-			currentTime.tm_hour = 0;
-			currentTime.tm_min =0;
-			continue;
-		}
-		isDone = 1;
-	}	
+	return lineIndex;
 }
 
 //Invalid end times are -1. -1 is returned if there are no processes running
-int GetNextEndingTime() {
+int GetNextEndingTime(int *processEndTimes) {
 	int min = -1;
 	for (int i = 0; i < MAX_CMDLINES; i++) {
 		if (min == -1 || processEndTimes[i] < min) {
@@ -247,22 +215,24 @@ int GetNextEndingTime() {
 
 int main(int argcount, char *argvalue[]) {
 	if (argcount != 4) {
-		//stderr/print? I dunno
+		fprintf(stderr, "Error: received %d arguments when there should have been 4", argcount);
 		exit(EXIT_FAILURE);
 	}
 
-	readfiles(argvalue[2], 1);
-	readfiles(argvalue[3], 2);
+	int crontabLines = readfiles(argvalue[2], CRONTABFILE);
+	int estimateLines = readfiles(argvalue[3], ESTIMATESFILE);
 
-	int month = my_atoi(argvalue[1], 1);
+	int month = my_atoi(argvalue[1], MODE_MONTH); //Should error check here
 	int minutesInMonth = 60 * 24 * GetDaysInMonth(month);
 
 	int currentRunningProcesses = 0;
-	int cumulativeProcesses = 0;
 	int maxRunningProcesses = 0;
 
 	int firstDay = firstDayOfMonth(month);
 	
+	int processEndTimes[MAX_CMDLINES];
+
+	//Initalise processEndTimes with -1, as no process has begun yet
 	for (int i = 0; i < MAX_CMDLINES; i++) {
 		processEndTimes[i] = -1;
 	}
@@ -272,7 +242,7 @@ int main(int argcount, char *argvalue[]) {
 
 		//Ending processes
 		for (int j = 0; j < MAX_CMDLINES; j++) {
-			if (processEndTimes[j] == i && i != 0) {
+			if (processEndTimes[j] == i) {
 				processEndTimes[j] = -1;
 				currentRunningProcesses -= 1;
 				printf("Ended a process at point '%d' at time %d \n", j, i);
@@ -285,41 +255,43 @@ int main(int argcount, char *argvalue[]) {
 		}
 	
 		//Checking if any process can be starting
-		for (int j = 0; j < fileinfoLength; j++) {
+		for (int j = 0; j < crontabLines; j++) {
 			int valid = 1; //Default true
 			int hour = i / 60;
 			int day = i / (60 * 24);
-			if (fileinfo[j].date != ALLVALUES) {
+			if (crontabFile[j].date != ALLVALUES) {
 				//Test if the day in the current minute is in fileinfo[j].date
-				if (fileinfo[j].date != day) {
+				if (crontabFile[j].date != day) {
 					valid = 0;
 				}
 			}
-			if (fileinfo[j].weekday != ALLVALUES) {
+			if (crontabFile[j].weekday != ALLVALUES) {
 				//Test if the day in the current minute is a valid weekday
-				if ((firstDay + day) % 7 != fileinfo[j].weekday) {
+				if ((firstDay + day) % 7 != crontabFile[j].weekday) {
 					valid = 0;
 				}
 			}
-			if (fileinfo[j].month != ALLVALUES && fileinfo[j].month != month) {
+			if (crontabFile[j].month != ALLVALUES && crontabFile[j].month != month) {
 				valid = 0;
 			}
-			if (fileinfo[j].hour != ALLVALUES) {
-				if (hour % 24 != fileinfo[j].hour) {
+			if (crontabFile[j].hour != ALLVALUES) {
+				if (hour % 24 != crontabFile[j].hour) {
 					valid = 0;
 				}
 			}
-			if (fileinfo[j].minute != ALLVALUES) {
-				if (i % 60 != fileinfo[j].minute) {
+			if (crontabFile[j].minute != ALLVALUES) {
+				if (i % 60 != crontabFile[j].minute) {
 					valid = 0;
 				}
 			}
 			if (valid == 1) {
 				//Invoke process
-				int returnval = invokeProcess(i + fileinfo[j].runtime);
-				printf("Invoked process at point '%d' at time %d with endtime %d. Process id: %d \n", returnval, i, i + fileinfo[j].runtime, j);
+				int returnval = invokeProcess(i + estimatesFile[crontabFile[j].estimatesID].runtime, processEndTimes);
+				printf("Invoked process at point '%d' at time %d with endtime %d. Process id: %d \n", returnval, i, i + estimatesFile[crontabFile[j].estimatesID].runtime, j);
 				currentRunningProcesses += 1;
-				cumulativeProcesses += 1;
+				estimatesFile[crontabFile[j].estimatesID].runcount += 1;
+
+
 				if (currentRunningProcesses > maxRunningProcesses) {
 					maxRunningProcesses = currentRunningProcesses;
 				}
@@ -327,34 +299,15 @@ int main(int argcount, char *argvalue[]) {
 		}
 	}
 
-	printf("%d %d", maxRunningProcesses, cumulativeProcesses);
-
-	/*
-	int currentTime = 0;
-	while true {
-		//Get next starting process/Get next ending process
-		//If current processes are 20
-		
-		int nextEnding = GetNextEndingTime();
-
-		//There are too many processes running, one can only end
-		if (cuurentRunningProcesses == 20) {
-			//The next event is a process ending
-			currentTime = processEndTimes[i];
-			processEndTimes[i] = -1; //Kill process
-			currentRunningProcesses -= 1;
+	//We've accumulated the run counts for every 
+	int mostRanProgram = 0;
+	int cumulativeProcesses = 0;
+	for (int i = 0; i < estimateLines; i++) {
+		cumulativeProcesses += estimatesFile[i].runcount;
+		if (estimatesFile[mostRanProgram].runcount < estimatesFile[i].runcount) {
+			mostRanProgram = i;
 		}
+	}
 
-		int nextStart = NewGetNextStartingTime();
-		//Make sure you account for the edge case where one program ends as another begins
-	}*/
-	/*
-	struct tm currentTime;
-
-	currentTime.tm_min = 0;		currentTime.tm_hour = 0;	currentTime.tm_mday = 0;
-	currentTime.tm_mon = month;
-	*/
-	//NewGetNextStartingTime(currentTime, 0, month);
-
-	//printf("%d, %d, %d, %d, %d", currentTime.tm_min, currentTime.tm_hour, currentTime.tm_mday, currentTime.tm_mon, currentTime.tm_wday);
+	printf("%s %d %d", estimatesFile[mostRanProgram].name, cumulativeProcesses, maxRunningProcesses);
 }
