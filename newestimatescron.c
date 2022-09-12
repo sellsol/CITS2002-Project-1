@@ -15,7 +15,7 @@
 
 //'weekday' is a bad way to decribe this, and vague. meed a better way to describe days of the week
 int weekdayToInt(char *day_name) {
-	char days[7][4] = {"sun\0", "mon\0", "tue\0", "wed\0", "thu\0", "fri\0", "sat\0"};
+	char days[7][4] = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
 	for (int dayNum = 0; dayNum < 7; dayNum++) {
 		if (strcmp(days[dayNum], day_name)) {
 			return dayNum;
@@ -27,14 +27,12 @@ int weekdayToInt(char *day_name) {
 
 //Converts month string to int code
 int monthToInt(char *month_name) {
-	char months[12][4] = {"jan\0", "feb\0", "mar\0", "apr\0", "may\0", "jun\0", "jul\0", "aug\0", "sep\0", "oct\0", "nov\0", "dec\0"};
+	char months[12][4] = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
 	for (int monthNum = 0; monthNum < 12; monthNum++) {
-		printf("%s \n", months[monthNum]);
 		if (strcmp(months[monthNum], month_name) == 0) {
 			return monthNum;
 		}
 	}
-	printf("\n");
 
 	return ERRORVAL;
 }
@@ -167,7 +165,7 @@ int readfiles(char *filename, int filetype) {
 				crontabFile[lineIndex].weekday = my_atoi(token, MODE_WEEK);
 				token = strtok(NULL, " ");
 				strcpy(crontabFile[lineIndex].name, token);
-				
+
 				//Test if there is any errors when reading the file
 				
 				if (crontabFile[lineIndex].minute == ERRORVAL ||
@@ -188,7 +186,7 @@ int readfiles(char *filename, int filetype) {
 				token = strtok(NULL, " ");
 				estimatesFile[lineIndex].runtime = atoi(timeEstimate);
 
-				for (int j = 0; j < sizeof(crontabFile)/sizeof(crontabFile[0]); j++) {
+				for (int j = 0; j < sizeof(estimatesFile)/sizeof(estimatesFile[0]); j++) {
 					if (strcmp(crontabFile[lineIndex].name, token) == 0) {
 						crontabFile[j].estimatesID = lineIndex;
 					}
@@ -214,6 +212,7 @@ int GetNextEndingTime(int *processEndTimes) {
 }
 
 int main(int argcount, char *argvalue[]) {
+	printf("asda");
 	if (argcount != 4) {
 		fprintf(stderr, "Error: received %d arguments when there should have been 4", argcount);
 		exit(EXIT_FAILURE);
