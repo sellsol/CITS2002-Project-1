@@ -259,6 +259,67 @@ int main(int argcount, char *argvalue[]) {
 	int currentRunningProcesses = 0;
 	int maxRunningProcesses = 0;
 
+	int firstDay = firstDayOfMonth(month);
+
+	//Check every minute in month to see if anything starts, if anything ends
+	for (int i = 0; i < minutesInMonth; i++) {
+
+		//Ending processes
+		for (int j = 0; j < MAX_CMDLINES; j++) {
+			if (processEndTimes[j] == i) {
+				processEndTimes[j] = -1;
+				currentRunningProcesses - 1;
+			}
+		}
+
+		//Can only end a process
+		if (currentRunningProcesses == 20) {
+			continue;
+		}
+	
+		//Checking if any process can be starting
+		for (int j = 0; j < fileinfoLength; j++) {
+			int valid = 1; //Default true
+			int hour = i / 60;
+			int day = i / (60 * 24);
+			if (fileinfo[j].date != ALLVALUES) {
+				//Test if the day in the current minute is in fileinfo[j].date
+				if (fileinfo[j].date != day) {
+					valid = 0;
+				}
+			}
+			if (fileinfo[j].weekday != ALLVALUES) {
+				//Test if the day in the current minute is a valid weekday
+				if ((firstDay + day) % 7 != fileinfo[j].weekday) {
+					valid = 0;
+				}
+			}
+			if (fileinfo[j].month != ALLVALUES && fileinfo[j].month != month) {
+				valid = 0;
+			}
+			if (fileinfo[j].hour != ALLVALUES) {
+				if (hour % 24 != fileinfo[j].hour) {
+					valid = 0;
+				}
+			}
+			if (fileinfo[j].minute != ALLVALUES) {
+				if (i % 60 != fileinfo[j].minute) {
+					valid = 0;
+				}
+			}
+			if (valid == 1) {
+				//Invoke process
+				int returnval = invokeProcess(i + fileinfo[j].runtime);
+				currentRunningProcesses += 1;
+				if (currentRunningProcesses > maxRunningProcesses) {
+					maxRunningProcesses = currentRunningProcesses;
+				}
+			}
+		}
+	}
+
+	printf("%d", maxRunningProcesses);
+
 	/*
 	int currentTime = 0;
 	while true {
@@ -278,13 +339,13 @@ int main(int argcount, char *argvalue[]) {
 		int nextStart = NewGetNextStartingTime();
 		//Make sure you account for the edge case where one program ends as another begins
 	}*/
-
+	/*
 	struct tm currentTime;
 
 	currentTime.tm_min = 0;		currentTime.tm_hour = 0;	currentTime.tm_mday = 0;
 	currentTime.tm_mon = month;
-	
-	NewGetNextStartingTime(currentTime, 0, month);
+	*/
+	//NewGetNextStartingTime(currentTime, 0, month);
 
-	printf("%d, %d, %d, %d, %d", currentTime.tm_min, currentTime.tm_hour, currentTime.tm_mday, currentTime.tm_mon, currentTime.tm_wday);
+	//printf("%d, %d, %d, %d, %d", currentTime.tm_min, currentTime.tm_hour, currentTime.tm_mday, currentTime.tm_mon, currentTime.tm_wday);
 }
