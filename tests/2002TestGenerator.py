@@ -20,7 +20,7 @@ def GenerateEstimatesFile():
          elif (estimatesCount != estimatesNum):
             estimatesCount += 1
             #Generate an estimate
-            name = randomword(int(rn.random() * 40) + 1)
+            name = randomword(int(rn.random() * 5) + 1)
             estimates.append(name)
             outputString += name + " " + str(int(rn.random() * 600) + 1)
          else:

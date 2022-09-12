@@ -1,10 +1,8 @@
-17 5 19 oct *     pqhwguirnvpvoqbwyxyflvigycpsy
-34 * * 1 0     ogpcotvzwidkmlgzibxzvugqsmtkxtth
-55 * * * 2     ogpcotvzwidkmlgzibxzvugqsmtkxtth
-45 3 12 * *     znpiuwskstcwitgzucymiffv
-# jmqil
-* * 22 * *     mmrpszvoovrfihp
-* * 8 * *     fyokcuwbnsriqzbkmjzdyrpcgjpdneupxpn
-20 * 23 jun wed     nyxwgyusaepzurrfjmzowiih
-21 17 * * *     pqhwguirnvpvoqbwyxyflvigycpsy
-# num
+* 3 * 2 3     r
+* 12 16 10 *     xzx
+* 22 * * *     s
+* 9 15 feb *     dzo
+16 * * 5 *     wxdz
+# qtepam
+11 * * * *     r
+35 8 * mar thu     r

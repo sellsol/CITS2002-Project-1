@@ -33,10 +33,10 @@ int invokeProcess(int endTime) {
 	for (int i = 0; i < MAX_CMDLINES; i++) {
 		if (processEndTimes[i] == -1) { //Setting the end time to -1 indicates the process is invalid
 			processEndTimes[i] = endTime;
-			return 1;
+			return i;
 		}
 	}
-	return 0;
+	return -1;
 }
 //'weekday' is a bad way to decribe this, and vague. meed a better way to describe days of the week
 int weekdayToInt(char *day_name) {
@@ -133,7 +133,7 @@ void readfiles(char *filename, int filetype) {
 		}
 
 		token = strtok(line, " ");
-
+		char* timeEstimate;
 		//Ignore comment lines
 		if (token[0] == '#') {
 			continue;
@@ -152,14 +152,15 @@ void readfiles(char *filename, int filetype) {
 				fileinfo[i].weekday = my_atoi(token, 2);
 				token = strtok(NULL, " ");
 				strcpy(fileinfo[i].name, token);
+
+				fileinfoLength = sizeof(fileinfo)/sizeof(fileinfo[0]);
 				
 				break;
 			case 2:
+				timeEstimate = strtok(NULL, " ");
 				for (int i = 0; i < sizeof(fileinfo)/sizeof(fileinfo[0]); i++) {
 					if (strcmp(fileinfo[i].name, token) == 0) {
-						token = strtok(NULL, " ");
-						fileinfo[i].runtime = atoi(token);
-						break;
+						fileinfo[i].runtime = atoi(timeEstimate);
 					}
 				}
 				break;
@@ -257,23 +258,29 @@ int main(int argcount, char *argvalue[]) {
 	int minutesInMonth = 60 * 24 * GetDaysInMonth(month);
 
 	int currentRunningProcesses = 0;
+	int cumulativeProcesses = 0;
 	int maxRunningProcesses = 0;
 
 	int firstDay = firstDayOfMonth(month);
+	
+	for (int i = 0; i < MAX_CMDLINES; i++) {
+		processEndTimes[i] = -1;
+	}
 
 	//Check every minute in month to see if anything starts, if anything ends
 	for (int i = 0; i < minutesInMonth; i++) {
 
 		//Ending processes
 		for (int j = 0; j < MAX_CMDLINES; j++) {
-			if (processEndTimes[j] == i) {
+			if (processEndTimes[j] == i && i != 0) {
 				processEndTimes[j] = -1;
-				currentRunningProcesses - 1;
+				currentRunningProcesses -= 1;
+				printf("Ended a process at point '%d' at time %d \n", j, i);
 			}
 		}
 
 		//Can only end a process
-		if (currentRunningProcesses == 20) {
+		if (currentRunningProcesses == MAX_CMDLINES) {
 			continue;
 		}
 	
@@ -310,7 +317,9 @@ int main(int argcount, char *argvalue[]) {
 			if (valid == 1) {
 				//Invoke process
 				int returnval = invokeProcess(i + fileinfo[j].runtime);
+				printf("Invoked process at point '%d' at time %d with endtime %d. Process id: %d \n", returnval, i, i + fileinfo[j].runtime, j);
 				currentRunningProcesses += 1;
+				cumulativeProcesses += 1;
 				if (currentRunningProcesses > maxRunningProcesses) {
 					maxRunningProcesses = currentRunningProcesses;
 				}
@@ -318,7 +327,7 @@ int main(int argcount, char *argvalue[]) {
 		}
 	}
 
-	printf("%d", maxRunningProcesses);
+	printf("%d %d", maxRunningProcesses, cumulativeProcesses);
 
 	/*
 	int currentTime = 0;
