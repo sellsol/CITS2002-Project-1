@@ -146,7 +146,7 @@ int readfiles(char *filename, int filetype) {
 		}
 
 		token = strtok(line, " ");
-		char* timeEstimate;
+		
 		//Ignore comment lines
 		if (token[0] == '#') {
 			continue;
@@ -164,7 +164,6 @@ int readfiles(char *filename, int filetype) {
 				token = strtok(NULL, " ");
 				crontabFile[lineIndex].weekday = my_atoi(token, MODE_WEEK);
 				token = strtok(NULL, " ");
-				strcpy(crontabFile[lineIndex].name, token);
 
 				//Test if there is any errors when reading the file
 				
@@ -180,17 +179,19 @@ int readfiles(char *filename, int filetype) {
 					exit(EXIT_FAILURE);
 				}
 
+				for (int j = 0; j < sizeof(estimatesFile)/sizeof(estimatesFile[0]); j++) {
+					if (strcmp(token, estimatesFile[j].name) == 0) {
+						crontabFile[lineIndex].estimatesID = j;
+						break;
+					}
+				}
+
 				break;
 			case ESTIMATESFILE:
 				strcpy(estimatesFile[lineIndex].name, token);
 				token = strtok(NULL, " ");
-				estimatesFile[lineIndex].runtime = atoi(timeEstimate);
+				estimatesFile[lineIndex].runtime = atoi(token);
 
-				for (int j = 0; j < sizeof(estimatesFile)/sizeof(estimatesFile[0]); j++) {
-					if (strcmp(crontabFile[lineIndex].name, token) == 0) {
-						crontabFile[j].estimatesID = lineIndex;
-					}
-				}
 				break;
 		}
 		lineIndex++;
@@ -212,14 +213,13 @@ int GetNextEndingTime(int *processEndTimes) {
 }
 
 int main(int argcount, char *argvalue[]) {
-	printf("asda");
 	if (argcount != 4) {
 		fprintf(stderr, "Error: received %d arguments when there should have been 4", argcount);
 		exit(EXIT_FAILURE);
 	}
 
-	int crontabLines = readfiles(argvalue[2], CRONTABFILE);
 	int estimateLines = readfiles(argvalue[3], ESTIMATESFILE);
+	int crontabLines = readfiles(argvalue[2], CRONTABFILE);
 
 	int month = my_atoi(argvalue[1], MODE_MONTH); //Should error check here
 	int minutesInMonth = 60 * 24 * GetDaysInMonth(month);
@@ -286,7 +286,7 @@ int main(int argcount, char *argvalue[]) {
 			if (valid == 1) {
 				//Invoke process
 				int returnval = invokeProcess(i + estimatesFile[crontabFile[j].estimatesID].runtime, processEndTimes);
-				printf("Invoked process at point '%d' at time %d with endtime %d. Process id: %d \n", returnval, i, i + estimatesFile[crontabFile[j].estimatesID].runtime, j);
+				printf("Invoked process at point '%d' at time %d with endtime %d. Process id: %d \n", returnval, i, i + estimatesFile[crontabFile[j].estimatesID].runtime, crontabFile[j].estimatesID);
 				currentRunningProcesses += 1;
 				estimatesFile[crontabFile[j].estimatesID].runcount += 1;
 
