@@ -34,7 +34,6 @@ struct {
 	int month;
 	int weekday;
 	char name[MAX_CMDNAME_LEN];
-
 	int estimatesID;
 } crontabFile[MAX_CMDLINES];
 int crontabLines = 0;
@@ -80,7 +79,7 @@ int main(int argcount, char *argvalue[])
 	printf("%s %d %d\n", estimatesFile[mostRunProgram].name, totalRunProcs, maxRunningProcs);
 }
 
-int readFiles(char *filename, int mode) 
+int readFiles(char *filename, int filetype) 
 {
 	FILE *dict = fopen(filename, "r");
 	if (dict == NULL) {
@@ -95,7 +94,19 @@ int readFiles(char *filename, int mode)
 	while (fgets(line, sizeof line, dict) != NULL) {
 		line[strcspn(line, "\r\n")] = 0;
 
-		switch (mode) {
+		//Ignore empty lines
+		if (strlen(line) == 0) {
+			continue;
+		}
+
+		token = strtok(line, " ");
+		
+		//Ignore comment lines
+		if (token[0] == '#') {
+			continue;
+		}
+
+		switch (filetype) {
 			case MODE_CRONTAB:
 				crontabFile[lineIndex].minute = myAtoi(token, MODE_NONE);
 				token = strtok(NULL, " ");
@@ -122,7 +133,7 @@ int readFiles(char *filename, int mode)
 					exit(EXIT_FAILURE);
 				}
 
-				for (int j = 0; j < sizeof(estimatesFile)/ sizeof(estimatesFile[0]); j++) {
+				for (int j = 0; j < sizeof(estimatesFile)/sizeof(estimatesFile[0]); j++) {
 					if (strcmp(token, estimatesFile[j].name) == 0) {
 						crontabFile[lineIndex].estimatesID = j;
 						break;
@@ -149,11 +160,9 @@ int myAtoi(char *datastring, int mode)
 {
 	if (isdigit(datastring[0])) {
 		return atoi(datastring);
-	} 
-	else if (datastring[0] == '*') {
+	} else if (datastring[0] == '*') {
 		return ALLVALUES;
-	} 
-	else {
+	} else {
 		//At this point, convert a 3-char string to an integer based off the mode
 		switch (mode) {
 			case MODE_WEEKDAY:
@@ -208,7 +217,7 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 			if (processEndTimes[pid] == now) {
 				processEndTimes[pid] = -1;
 				currentRunningProcs--;
-				printf("Ended a process with process id '%d' at time %d \n", pid, now);
+				printf("Ended a process at point '%d' at time %d \n", pid, now);
 			}
 		}
 
@@ -220,34 +229,29 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 		// checking if any process can be starting
 		for (int cronid = 0; cronid < crontabLines; cronid++) {
 			//int valid = 1;// default true
-			int firstDay = firstDayOfMonth(monthProvided);
-			int nowMin = now % 60;
-			int nowHour = now / 60 % 24;
-			int nowDate = now / 60 / 24;
-			int nowWeekday = (firstDay + nowDate) % 7;
-			if (crontabFile[cronid].date != ALLVALUES && crontabFile[cronid].date != nowDate) {
+			int hour = now / 60;
+			int date = now / (60 * 24);
+			if (crontabFile[cronid].date != ALLVALUES && crontabFile[cronid].date != date) {
 				continue;
 			}
-			if (crontabFile[cronid].weekday != ALLVALUES && crontabFile[cronid].weekday != nowWeekday) {
+			if (crontabFile[cronid].weekday != ALLVALUES && crontabFile[cronid].weekday != (firstDayOfMonth(monthProvided) + date) % 7) {
 				continue;
 			}
 			if (crontabFile[cronid].month != ALLVALUES && crontabFile[cronid].month != monthProvided) {
 				continue;
 			}
-			if (crontabFile[cronid].hour != ALLVALUES && crontabFile[cronid].hour != nowHour) {
+			if (crontabFile[cronid].hour != ALLVALUES && crontabFile[cronid].hour != hour % 24) {
 				continue;
 			}
-			if (crontabFile[cronid].minute != ALLVALUES && crontabFile[cronid].minute != nowMin) {
+			if (crontabFile[cronid].minute != ALLVALUES && crontabFile[cronid].minute != now % 60) {
 				continue;
 			}
 			
 			// invoke process
-			int runTime = estimatesFile[crontabFile[cronid].estimatesID].runTime;
-			int pid = invokeProcess(now + runTime, processEndTimes);
-			int estimatesID = crontabFile[cronid].estimatesID;
-			printf("Invoked process with process id '%d' at time %d with endtime %d. Command id: %d \n", pid, now, now + runTime, estimatesID);
+			int returnval = invokeProcess(now + estimatesFile[crontabFile[cronid].estimatesID].runTime, processEndTimes);
+			printf("Invoked process at point '%d' at time %d with endtime %d. Process id: %d \n", returnval, now, now + estimatesFile[crontabFile[cronid].estimatesID].runTime, crontabFile[cronid].estimatesID);
 			currentRunningProcs += 1;
-			estimatesFile[estimatesID].runCount++;
+			estimatesFile[crontabFile[cronid].estimatesID].runCount++;
 
 			if (currentRunningProcs > *maxRunningProcs) {
 				*maxRunningProcs = currentRunningProcs;
@@ -298,8 +302,15 @@ int invokeProcess(int endTime, int *processEndTimes) {
 	for (int i = 0; i < MAX_CMDLINES; i++) {
 		if (processEndTimes[i] == -1) {
 			processEndTimes[i] = endTime;
-			return i;
+			return 1;
 		}
 	}
 	return 0;
 }
+
+
+
+
+
+
+

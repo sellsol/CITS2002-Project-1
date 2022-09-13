@@ -34,7 +34,6 @@ struct {
 	int month;
 	int weekday;
 	char name[MAX_CMDNAME_LEN];
-
 	int estimatesID;
 } crontabFile[MAX_CMDLINES];
 int crontabLines = 0;
@@ -94,6 +93,18 @@ int readFiles(char *filename, int mode)
 	int lineIndex = 0;
 	while (fgets(line, sizeof line, dict) != NULL) {
 		line[strcspn(line, "\r\n")] = 0;
+
+		//Ignore empty lines
+		if (strlen(line) == 0) {
+			continue;
+		}
+
+		token = strtok(line, " ");
+		
+		//Ignore comment lines
+		if (token[0] == '#') {
+			continue;
+		}
 
 		switch (mode) {
 			case MODE_CRONTAB:
@@ -303,3 +314,10 @@ int invokeProcess(int endTime, int *processEndTimes) {
 	}
 	return 0;
 }
+
+
+
+
+
+
+
