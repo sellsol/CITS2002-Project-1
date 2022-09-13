@@ -2,6 +2,12 @@
 // Student1: 	23643117	Leow	Hai Ning
 // Student2:	TBD		Frayne	James
 
+// program name: estimatescron.c
+// program description: 
+// given a month, a crontab file, and an estimates file,
+// simulate the execution of the cron processes throughout the month and
+// output the name of the most run command, the total number of processes run, and the maximum simultaneous processes run
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -79,6 +85,10 @@ int main(int argcount, char *argvalue[])
 	printf("%s %d %d\n", estimatesFile[mostRunProgram].name, totalRunProcs, maxRunningProcs);
 }
 
+// reads the crontab and estimates files, converting their data values and storing into the struct arrays
+// param filename: the filename to read from
+// param mode: if the file is the crontab file (MODE_CRONTAB) or estimates file (MODE_ESTIMATES)
+// return: the number of lines read into the struct arrays
 int readFiles(char *filename, int mode) 
 {
 	FILE *dict = fopen(filename, "r");
@@ -87,6 +97,7 @@ int readFiles(char *filename, int mode)
 		exit(EXIT_FAILURE);
 	}
 
+    // looping through text file
 	char line[MAX_FILENAME_LEN];
 	char *token;
 	
@@ -106,6 +117,7 @@ int readFiles(char *filename, int mode)
 			continue;
 		}
 
+        // store string tokens into arrays depending on if it is the crontab file or estimates file
 		switch (mode) {
 			case MODE_CRONTAB:
 				crontabFile[lineIndex].minute = myAtoi(token, MODE_NONE);
@@ -120,7 +132,6 @@ int readFiles(char *filename, int mode)
 				token = strtok(NULL, " ");
 
 				//Test if there is any errors when reading the file
-
 				if (crontabFile[lineIndex].minute == ERRORVALUE ||
 					crontabFile[lineIndex].hour == ERRORVALUE ||
 					crontabFile[lineIndex].date == ERRORVALUE ||
@@ -133,7 +144,7 @@ int readFiles(char *filename, int mode)
 					exit(EXIT_FAILURE);
 				}
 
-				for (int j = 0; j < sizeof(estimatesFile)/ sizeof(estimatesFile[0]); j++) {
+				for (int j = 0; j < estimatesLines; j++) {
 					if (strcmp(token, estimatesFile[j].name) == 0) {
 						crontabFile[lineIndex].estimatesID = j;
 						break;
@@ -155,7 +166,10 @@ int readFiles(char *filename, int mode)
 	return lineIndex;
 }
 
-
+// converts data values in the crontab file to an integer, from either a numeric argument, *, or string name
+// param datastring: the string data to convert
+// param mode: if the datastring represents a weekday (MODE_WEEKDAY), month (MODE_MONTH) or neither (MODE_NONE
+// return: the converted int value
 int myAtoi(char *datastring, int mode) 
 {
 	if (isdigit(datastring[0])) {
@@ -165,7 +179,7 @@ int myAtoi(char *datastring, int mode)
 		return ALLVALUES;
 	} 
 	else {
-		//At this point, convert a 3-char string to an integer based off the mode
+		// datastring is a 3-char string, convert to an integer based off the mode
 		switch (mode) {
 			case MODE_WEEKDAY:
 				return weekdayToInt(datastring);
@@ -177,6 +191,9 @@ int myAtoi(char *datastring, int mode)
 	}
 }
 
+// converts the month as a 3-char string to an integer
+// param monthName: the month's name as a 3-char string
+// return: the converted int value representing the month
 int monthToInt(char *monthName)
 {
 	char months[12][4] = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
@@ -189,6 +206,9 @@ int monthToInt(char *monthName)
 	return ERRORVALUE;
 }
 
+// converts the weekday as a 3-char string to an integer
+// param dayName: the weekday's name as a 3-char string
+// return: the converted int value representing the month
 int weekdayToInt(char *dayName)
 {
 	char days[7][4] = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
@@ -202,35 +222,40 @@ int weekdayToInt(char *dayName)
 }
 
 
+// loops to simulate cron checking and execution throughout the month, recording calculations to the pointer parameters
+// param mostRunProgram: pointer to the estimatesFile index/ command id of the most frequently run command/program that month
+// param totalRunProcs: pointer to the total processes run during the month
+// param maxRunningProcs: pointer to the maximum number of processes running simultaneously during month
+// param monthProvided: the given month to calculate for
 void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int monthProvided)
 {
-	int minutesInMonth = 60 * 24 * daysInMonth(monthProvided);
 	int currentRunningProcs = 0;
 	int processEndTimes[MAX_CMDLINES];
-	//int firstDay
 	
+    // initialising processEndTimes to have no running processes
 	for (int pid = 0; pid < MAX_CMDLINES; pid++) {
 		processEndTimes[pid] = -1;
 	}
 
+    // looping through the month by minutes
+    int minutesInMonth = 60 * 24 * daysInMonth(monthProvided);
 	for (int now = 0; now < minutesInMonth; now++) {
-		// ending processes
+		// ending processes that terminate now, decrementing relevant counts
 		for (int pid = 0; pid < MAX_CMDLINES; pid++) {
 			if (processEndTimes[pid] == now) {
 				processEndTimes[pid] = -1;
 				currentRunningProcs--;
-				printf("Ended a process with process id '%d' at time %d \n", pid, now);
+				printf("Ended a process with process id %d at time %d \n", pid, now);
 			}
 		}
 
-		// max processes already running
+		// if max number of processes already running
 		if (currentRunningProcs == MAX_CMDLINES) {
 			continue;
 		}
 
 		// checking if any process can be starting
 		for (int cronid = 0; cronid < crontabLines; cronid++) {
-			//int valid = 1;// default true
 			int firstDay = firstDayOfMonth(monthProvided);
 			int nowMin = now % 60;
 			int nowHour = now / 60 % 24;
@@ -252,20 +277,21 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 				continue;
 			}
 			
-			// invoke process
+			// invoke processes that are starting now, incrementing relevant counts
 			int runTime = estimatesFile[crontabFile[cronid].estimatesID].runTime;
 			int pid = invokeProcess(now + runTime, processEndTimes);
 			int estimatesID = crontabFile[cronid].estimatesID;
-			printf("Invoked process with process id '%d' at time %d with endtime %d. Command id: %d \n", pid, now, now + runTime, estimatesID);
-			currentRunningProcs += 1;
+			printf("Invoked process with process id %d at time %d with endtime %d. Command id: %d \n", pid, now, now + runTime, estimatesID);
+			
+            currentRunningProcs++;
 			estimatesFile[estimatesID].runCount++;
-
 			if (currentRunningProcs > *maxRunningProcs) {
 				*maxRunningProcs = currentRunningProcs;
 			}
 		}
 	}
 
+    // getting the most frequently run program
 	for (int i = 0; i < estimatesLines; i++) {
 		*totalRunProcs += estimatesFile[i].runCount;
 		if (estimatesFile[*mostRunProgram].runCount < estimatesFile[i].runCount) {
@@ -275,6 +301,9 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 
 }
 
+// finding the number of days in a specified month
+// param month: the month to calculate for as an integer
+// return: the number of days in the month
 int daysInMonth(int month) 
 {
 	if (month == FEBRUARY) {
@@ -288,6 +317,9 @@ int daysInMonth(int month)
 	}
 }
 
+// finding the weekday the first day of a specified month is on
+// param month: the month to calculate for as an integer
+// return: the weekday the first day of the month is on as an int
 int firstDayOfMonth(int month)
 {
 	struct tm tm;
@@ -304,8 +336,11 @@ int firstDayOfMonth(int month)
 }
 
 
+// invokes a process by finding available space to run and storing its endTime in the array of processes
+// param endTime: the time the process will finish as the number of minutes since the month started
+// param processEndTimes: the array storing the endTimes of currently running processes
+// return: the processEndTimes index/ process id given to this process
 int invokeProcess(int endTime, int *processEndTimes) {
-	//Find available space for the process to run
 	for (int i = 0; i < MAX_CMDLINES; i++) {
 		if (processEndTimes[i] == -1) {
 			processEndTimes[i] = endTime;
