@@ -179,7 +179,12 @@ int readFiles(char *filename, int mode)
 			case MODE_ESTIMATES:
 				strcpy(estimatesFile[lineIndex].name, token);
 				token = strtok(NULL, " ");
-				estimatesFile[lineIndex].runTime = atoi(token);
+				estimatesFile[lineIndex].runTime = myAtoi(token, MODE_NORMAL, 1, 1000000);
+
+				if (estimatesFile[lineIndex].runTime == ERRORVALUE) {
+					fprintf(stderr, "Invalid runtime of '%d' for estimate on line '%d'",
+							estimatesFile[lineLindex].runTime, lineIndex);
+				}
 
 				break;
 		}
