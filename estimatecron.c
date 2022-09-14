@@ -39,7 +39,6 @@ struct {
 	int date;
 	int month;
 	int weekday;
-	char name[MAX_CMDNAME_LEN];
 	int estimatesID;
 } crontabFile[MAX_CMDLINES];
 int crontabLines = 0;
@@ -52,7 +51,7 @@ struct {
 int estimatesLines = 0;
 
 int readFiles(char *fileName, int mode);
-int myAtoi(char *dataString, int mode);
+int myAtoi(char *dataString, int mode, int lowerBound, int upperBound);
 int monthToInt(char *monthName);
 int weekdayToInt(char *dayName);
 
@@ -70,7 +69,7 @@ int main(int argcount, char *argvalue[])
 	}
 
 	// read files and convert arguments and value
-	int monthProvided = myAtoi(argvalue[1], MODE_MONTH);
+	int monthProvided = myAtoi(argvalue[1], MODE_MONTH, 0, 11);
 	estimatesLines = readFiles(argvalue[3], MODE_ESTIMATES);
 	crontabLines = readFiles(argvalue[2], MODE_CRONTAB);
 
@@ -123,15 +122,15 @@ int readFiles(char *filename, int mode)
         // store string tokens into arrays depending on if it is the crontab file or estimates file
 		switch (mode) {
 			case MODE_CRONTAB:
-				crontabFile[lineIndex].minute = myAtoi(token, MODE_NONE);
+				crontabFile[lineIndex].minute = myAtoi(token, MODE_NONE, 0, 59);
 				token = strtok(NULL, " \t");
-				crontabFile[lineIndex].hour = myAtoi(token, MODE_NONE);
+				crontabFile[lineIndex].hour = myAtoi(token, MODE_NONE, 0, 23);
 				token = strtok(NULL, " \t");
-				crontabFile[lineIndex].date = myAtoi(token, MODE_NONE);
+				crontabFile[lineIndex].date = myAtoi(token, MODE_NONE, 1, 31);
 				token = strtok(NULL, " \t");
-				crontabFile[lineIndex].month = myAtoi(token, MODE_MONTH);
+				crontabFile[lineIndex].month = myAtoi(token, MODE_MONTH, 0, 11);
 				token = strtok(NULL, " \t");
-				crontabFile[lineIndex].weekday = myAtoi(token, MODE_WEEKDAY);
+				crontabFile[lineIndex].weekday = myAtoi(token, MODE_WEEKDAY, 0, 6);
 				token = strtok(NULL, " \t");
 
 				// error handling: month/weekday name not found or other values not an int
@@ -141,12 +140,34 @@ int readFiles(char *filename, int mode)
 					crontabFile[lineIndex].month == ERRORVALUE ||
 					crontabFile[lineIndex].weekday == ERRORVALUE) {
 
-					printf("%d %d %d %d %d", crontabFile[lineIndex].minute, crontabFile[lineIndex].hour, crontabFile[lineIndex].date,
+					fprintf(stderr, "Read line '%d' to ints as: %d %d %d %d %d", lineIndex, crontabFile[lineIndex].minute, crontabFile[lineIndex].hour, crontabFile[lineIndex].date,
 							crontabFile[lineIndex].month, crontabFile[lineIndex].weekday);
-					fprintf(stderr, "Error reading non-comment line '%d': Make sure data is valid\n", lineIndex);
 					exit(EXIT_FAILURE);
 				}
 
+				//Since we receive month after the date, we need to check the date for validity now instead of in myAtoi
+				int numDaysInMonth = daysInMonth(crontabFile[lineIndex].month);
+				if (numDaysInMonth < crontabFile[lineIndex].date) {
+					fprintf(stderr, "Invalid day of the month '%d' for month no. '%d'",
+							crontabFile[lineIndex].date, crontabFile[lineIndex].month);
+					exit(EXIT_FAILURE);
+				}
+
+				//If month, day and date are all specifically defined, we need to make sure it's valid
+				if (crontabFile[lineIndex].date != ALLVALUES &&
+					crontabFile[lineIndex].month != ALLVALUES &&
+					crontabFile[lineIndex].weekday != ALLVALUES) {
+				
+					int firstDayInMonth = firstDayOfMonth(crontabFile[lineIndex].month);	
+					int weekdayOfDate = (firstDayInMonth + crontabFile[lineIndex].date - 1) % 7;
+					if (weekdayOfDate != crontabFile[lineIndex].weekday) {
+						fprintf(stderr, "Month no. %d, Date no. %d, and Weekday no. %d do not match up in the year of 2022",
+								crontabFile[lineIndex].month, crontabFile[lineIndex].date, crontabFile[lineIndex].weekday);
+						exit(EXIT_FAILURE);
+					}
+				}
+
+				//Links crontab line to estimate line. This allows many processes to have one estimate
 				for (int j = 0; j < estimatesLines; j++) {
 					if (strcmp(token, estimatesFile[j].name) == 0) {
 						crontabFile[lineIndex].estimatesID = j;
@@ -172,11 +193,16 @@ int readFiles(char *filename, int mode)
 // converts data values in the crontab file to an integer, from either a numeric argument, *, or string name
 // param datastring: the string data to convert
 // param mode: if the datastring represents a weekday (MODE_WEEKDAY), month (MODE_MONTH) or neither (MODE_NONE
+// param lowerBound, upperBound: two inclusive bounds to determine what the value should be between
 // return: the converted int value
-int myAtoi(char *datastring, int mode) 
+int myAtoi(char *datastring, int mode, int lowerBound, int upperBound) 
 {
 	if (isdigit(datastring[0])) {
-		return atoi(datastring);
+		int value = atoi(datastring);
+		if (value >= lowerBound && value <= upperBound) {
+			return value;
+		}
+		return ERRORVALUE;
 	} 
 	else if (datastring[0] == '*') {
 		return ALLVALUES;
@@ -262,7 +288,7 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 			int firstDay = firstDayOfMonth(monthProvided);
 			int nowMin = now % 60;
 			int nowHour = now / 60 % 24;
-			int nowDate = now / 60 / 24;
+			int nowDate = (now / 60 / 24) + 1;
 			int nowWeekday = (firstDay + nowDate) % 7;
 			if (crontabFile[cronid].date != ALLVALUES && crontabFile[cronid].date != nowDate) {
 				continue;
@@ -284,7 +310,7 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 			int runTime = estimatesFile[crontabFile[cronid].estimatesID].runTime;
 			int pid = invokeProcess(now + runTime, processEndTimes);
 			int estimatesID = crontabFile[cronid].estimatesID;
-			printf("Invoked process with process id %d at time %d with endtime %d. Command id: %d \n", pid, now, now + runTime, estimatesID);
+			// DEBUG: printf("Invoked process with process id %d at time %d with endtime %d. Command id: %d \n", pid, now, now + runTime, estimatesID);
 			
             currentRunningProcs++;
 			estimatesFile[estimatesID].runCount++;
