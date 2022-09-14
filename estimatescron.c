@@ -34,7 +34,6 @@ struct {
 	int month;
 	int weekday;
 	char name[MAX_CMDNAME_LEN];
-
 	int estimatesID;
 } crontabFile[MAX_CMDLINES];
 int crontabLines = 0;
@@ -190,7 +189,6 @@ int weekdayToInt(char *dayName)
 	return ERRORVALUE;
 }
 
-
 void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int monthProvided)
 {
 	int minutesInMonth = 60 * 24 * daysInMonth(monthProvided);
@@ -275,6 +273,7 @@ int daysInMonth(int month)
 	else {
 		return 31;
 	}
+
 }
 
 int firstDayOfMonth(int month)
@@ -291,7 +290,6 @@ int firstDayOfMonth(int month)
 
 	return tm.tm_wday;
 }
-
 
 int invokeProcess(int endTime, int *processEndTimes) {
 	//Find available space for the process to run

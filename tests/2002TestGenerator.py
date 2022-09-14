@@ -20,7 +20,7 @@ def GenerateEstimatesFile():
          elif (estimatesCount != estimatesNum):
             estimatesCount += 1
             #Generate an estimate
-            name = randomword(int(rn.random() * 40) + 1)
+            name = randomword(int(rn.random() * 5) + 1)
             estimates.append(name)
             outputString += name + " " + str(int(rn.random() * 600) + 1)
          else:
@@ -109,7 +109,7 @@ def GenerateProcessesFile():
          if (isAll):
             line += "*"
          else:
-            line += str(int(rn.random() * 59))
+            line += str(int(rn.random() * 23))
 
          line += " "
             
@@ -133,7 +133,7 @@ def GenerateProcessesFile():
          if (isAll):
             line += "*"
          else:
-            line += str(int(rn.random() * numDays))
+            line += str(int(rn.random() * (numDays - 1)) + 1)
 
          line += " " + month + " "
 
