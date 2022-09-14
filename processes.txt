@@ -1,0 +1,17 @@
+37 * 1 * *     f
+# narx
+* 0 1 * thu     f
+12 1 * 3 *     gft
+15 * * * 3     gft
+45 21 1 * *     f
+* * * 5 0     f
+20 * * oct *     f
+# nm
+* 12 * aug *     f
+* 1 1 * 4     f
+* * 1 * mon     gft
+* * 8 1 *     f
+* * 1 * *     ka
+* * 12 9 *     f
+* * 1 * *     f
+# pxeqmcrhovxtbwhoa
