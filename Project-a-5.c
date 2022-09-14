@@ -94,6 +94,18 @@ int readFiles(char *filename, int mode)
 	while (fgets(line, sizeof line, dict) != NULL) {
 		line[strcspn(line, "\r\n")] = 0;
 
+		//Ignore empty lines
+		if (strlen(line) == 0) {
+			continue;
+		}
+
+		token = strtok(line, " ");
+		
+		//Ignore comment lines
+		if (token[0] == '#') {
+			continue;
+		}
+
 		switch (mode) {
 			case MODE_CRONTAB:
 				crontabFile[lineIndex].minute = myAtoi(token, MODE_NONE);
@@ -189,6 +201,7 @@ int weekdayToInt(char *dayName)
 	return ERRORVALUE;
 }
 
+
 void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int monthProvided)
 {
 	int minutesInMonth = 60 * 24 * daysInMonth(monthProvided);
@@ -273,7 +286,6 @@ int daysInMonth(int month)
 	else {
 		return 31;
 	}
-
 }
 
 int firstDayOfMonth(int month)
@@ -291,6 +303,7 @@ int firstDayOfMonth(int month)
 	return tm.tm_wday;
 }
 
+
 int invokeProcess(int endTime, int *processEndTimes) {
 	//Find available space for the process to run
 	for (int i = 0; i < MAX_CMDLINES; i++) {
@@ -301,3 +314,10 @@ int invokeProcess(int endTime, int *processEndTimes) {
 	}
 	return 0;
 }
+
+
+
+
+
+
+
