@@ -315,12 +315,17 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 			int runTime = estimatesFile[crontabFile[cronid].estimatesID].runTime;
 			int pid = invokeProcess(now + runTime, processEndTimes);
 			int estimatesID = crontabFile[cronid].estimatesID;
-			// DEBUG: printf("Invoked process with process id %d at time %d with endtime %d. Command id: %d \n", pid, now, now + runTime, estimatesID);
+			printf("Invoked process with process id %d at time %d with endtime %d. Command name: %s \n", pid, now, now + runTime, estimatesFile[estimatesID].name);
 			
-            currentRunningProcs++;
+            		currentRunningProcs++;
+
 			estimatesFile[estimatesID].runCount++;
 			if (currentRunningProcs > *maxRunningProcs) {
 				*maxRunningProcs = currentRunningProcs;
+			}
+
+			if (currentRunningProcs == MAX_CMDLINES) {
+				break;
 			}
 		}
 	}
@@ -381,7 +386,7 @@ int invokeProcess(int endTime, int *processEndTimes) {
 			return i;
 		}
 	}
-	return 0;
+	return ERRORVALUE;
 }
 
 
