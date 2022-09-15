@@ -2,7 +2,7 @@
 // Student1: 	23643117	Leow	Hai Ning
 // Student2:	TBD		Frayne	James
 
-// program name: estimatescron.c
+// program name: estimatecron.c
 // program description: 
 // given a month, a crontab file, and an estimates file,
 // simulate the execution of the cron processes throughout the month and
@@ -20,19 +20,17 @@
 #define MAX_FILENAME_LEN	100 + 1
 #define MAX_SIM_PROCS		20
 
-#define ALLVALUES 		-1
-#define ERRORVALUE		-2
-#define FEBRUARY 		1
-#define APRIL 			3
-#define JUNE			5
-#define SEPTEMBER		8
-#define NOVEMBER		10
+#define ALLVALUES 		-2
+#define ERRORVALUE		-1
 
 #define MODE_ESTIMATES		1
 #define MODE_CRONTAB		2
 #define MODE_NONE 		0
 #define MODE_MONTH		1
 #define MODE_WEEKDAY		2
+
+enum monthVal {JANUARY, FEBRUARY, MARCH, APRIL, MAY, JUNE, JULY, AUGUST, SEPTEMBER, NOVEMBER, DECEMBER};
+enum weekdayVal {SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY};
 
 struct {
 	int minute;
@@ -68,12 +66,18 @@ int main(int argcount, char *argvalue[])
 {
 	// error handling: incorrect number of command line arguments
     if (argcount != 4) {
-		fprintf(stderr, "Error: received %d arguments when there should have been 4", argcount);
+		fprintf(stderr, "error: received %d arguments when there should have been 4\n", argcount);
 		exit(EXIT_FAILURE);
 	}
 
-	// convert month argument, read files and convert its values
+	// convert month argument and error handling for validity
 	int monthProvided = myAtoi(argvalue[1], MODE_MONTH, 0, 11);
+	if (monthProvided == ERRORVALUE) {
+		fprintf(stderr, "error: month provided '%s' is not a valid month\n", argvalue[1]);
+		exit(EXIT_FAILURE);
+	}
+
+	// read files and convert their values
 	estimatesLines = readFiles(argvalue[3], MODE_ESTIMATES);
 	crontabLines = readFiles(argvalue[2], MODE_CRONTAB);
 
@@ -190,11 +194,11 @@ void checkStrtok(char *token, int mode, int lineNum, char *fullLine)
 {
 	if (token == NULL) {
 		if (mode == MODE_CRONTAB) {
-			fprintf(stderr, "line %d incomplete in crontab file: '%s'\n", lineNum, fullLine);
+			fprintf(stderr, "error: line %d incomplete in crontab file: '%s'\n", lineNum, fullLine);
 			exit(EXIT_FAILURE);
 		}
 		if (mode == MODE_ESTIMATES) {
-			fprintf(stderr, "line %d incomplete in estimates file: '%s'\n", lineNum, fullLine);
+			fprintf(stderr, "error: line %d incomplete in estimates file: '%s'\n", lineNum, fullLine);
 			exit(EXIT_FAILURE);
 		}
 	} 
@@ -275,14 +279,14 @@ void checkFileVals(int mode, int lineNum, int dataid, char *fullLine)
 				crontabFile[dataid].month == ERRORVALUE ||
 				crontabFile[dataid].weekday == ERRORVALUE) {
 
-				fprintf(stderr, "Line %d of crontab file contains invalid values for fields they represent: '%s'\n", lineNum, fullLine);
+				fprintf(stderr, "error: line %d of crontab file contains invalid values for fields they represent: '%s'\n", lineNum, fullLine);
 				exit(EXIT_FAILURE);
 			}
 
 			// error handling: since we receive month after the date, we need to check the date for validity in bounds now again after myAtoi
 			int numDaysInMonth = daysInMonth(crontabFile[dataid].month);
 			if (numDaysInMonth < crontabFile[dataid].date) {
-				fprintf(stderr, "Line %d of crontab file contains invalid values for fields they represent: '%s'\n", lineNum, fullLine);
+				fprintf(stderr, "error: line %d of crontab file contains invalid values for fields they represent: '%s'\n", lineNum, fullLine);
 				exit(EXIT_FAILURE);
 			}
 
@@ -290,7 +294,7 @@ void checkFileVals(int mode, int lineNum, int dataid, char *fullLine)
 		case MODE_ESTIMATES:
 			// error handling: runTime is invalid - 0 or negative
 			if (estimatesFile[dataid].runTime == ERRORVALUE) {
-				fprintf(stderr, "Invalid runtime of '%d' line '%d' of estimates file\n", estimatesFile[dataid].runTime, lineNum);
+				fprintf(stderr, "error: invalid runtime of '%d' line '%d' of estimates file\n", estimatesFile[dataid].runTime, lineNum);
 			}
 			break;
 	}
@@ -320,7 +324,7 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 			if (processEndTimes[pid] == now) {
 				processEndTimes[pid] = -1;
 				currentRunningProcs--;
-				printf("Ended a process with process id %d at time %d \n", pid, now);
+				printf("ended a process with process id %d at time %d\n", pid, now);
 			}
 		}
 
@@ -328,6 +332,7 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 		for (int cronid = 0; cronid < crontabLines; cronid++) {
 			// checking if max number of simultaneous processes already running
 			if (currentRunningProcs == MAX_SIM_PROCS) {
+				printf("cannot invoke new process, maximum simultaneous processes = %d\n", MAX_SIM_PROCS);
 				break;
 			}
 
@@ -335,8 +340,8 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 			int firstDay = firstDayOfMonth(monthProvided);
 			int nowMin = now % 60;
 			int nowHour = now / 60 % 24;
-			int nowDate = now / 60 / 24;
-			int nowWeekday = (firstDay + nowDate) % 7;
+			int nowDate = (now / 60 / 24) + 1;
+			int nowWeekday = (firstDay + (nowDate - 1)) % 7;
 			if (crontabFile[cronid].date != ALLVALUES && crontabFile[cronid].date != nowDate) {
 				continue;
 			}
@@ -357,7 +362,7 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 			int runTime = estimatesFile[crontabFile[cronid].estimatesID].runTime;
 			int pid = invokeProcess(now + runTime, processEndTimes);
 			int estimatesID = crontabFile[cronid].estimatesID;
-			printf("Invoked process with process id %d at time %d with endtime %d. Command name: %s \n", pid, now, now + runTime, estimatesFile[estimatesID].name);
+			printf("invoked process with process id %d at time %d with endtime %d. Command name: %s\n", pid, now, now + runTime, estimatesFile[estimatesID].name);
 			
             currentRunningProcs++;
 			estimatesFile[estimatesID].runCount++;
