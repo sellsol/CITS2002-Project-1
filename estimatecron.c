@@ -1,6 +1,6 @@
 // CITS2002 Project 1 2022
 // Student1: 	23643117	Leow	Hai Ning
-// Student2:	23372032		Frayne	James
+// Student2:	23372032	Frayne	James
 
 // program name: estimatescron.c
 // program description: 
