@@ -18,6 +18,7 @@
 #define MAX_CMDLINES 		20
 #define MAX_CMDNAME_LEN 	40 + 1
 #define MAX_FILENAME_LEN	100 + 1
+#define MAX_SIM_PROCS		20
 
 #define ALLVALUES 		-1
 #define ERRORVALUE		-2
@@ -56,7 +57,7 @@ void checkStrtok(char *token, int mode, int lineNum, char *fullLine);
 int myAtoi(char *dataString, int mode, int lowerBound, int upperBound);
 int monthToInt(char *monthName);
 int weekdayToInt(char *dayName);
-void checkFileVals(int mode, int lineNum, int dataid);
+void checkFileVals(int mode, int lineNum, int dataid, char *fullLine);
 
 void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int monthProvided);
 int daysInMonth(int month);
@@ -71,7 +72,7 @@ int main(int argcount, char *argvalue[])
 		exit(EXIT_FAILURE);
 	}
 
-	// read files and convert arguments and value
+	// convert month argument, read files and convert its values
 	int monthProvided = myAtoi(argvalue[1], MODE_MONTH, 0, 11);
 	estimatesLines = readFiles(argvalue[3], MODE_ESTIMATES);
 	crontabLines = readFiles(argvalue[2], MODE_CRONTAB);
@@ -151,7 +152,7 @@ int readFiles(char *filename, int mode)
 				token = strtok(NULL, " \t");
 				checkStrtok(token, mode, lineNum, fullLine);
 
-				checkFileVals(mode, lineNum, dataid); // check values for validity
+				checkFileVals(mode, lineNum, dataid, fullLine); // check values for validity
 
 				// links crontab line to estimates line. Allows multiple processes for same estimates line
 				for (int j = 0; j < estimatesLines; j++) {
@@ -169,7 +170,7 @@ int readFiles(char *filename, int mode)
 				checkStrtok(token, mode, lineNum, fullLine);
 				estimatesFile[dataid].runTime = myAtoi(token, MODE_NONE, 1, 44640);
 
-				checkFileVals(mode, lineNum, dataid); // check runtime for validity
+				checkFileVals(mode, lineNum, dataid, fullLine); // check runtime for validity
 
 				break;
 		}
@@ -259,11 +260,11 @@ int weekdayToInt(char *dayName)
 	return ERRORVALUE;
 }
 
-// checks the currently stored values for errorvalues, for both files
+// error handling/checks for if currently stored values are errorvalues, for both files
 // param mode: if the file is the crontab file (MODE_CRONTAB) or estimates file (MODE_ESTIMATES)
 // param lineNum: the number of this line in the file (including comment lines, starting from 1)
 // param dataid: the number of this line in the file array / number of this line in file not including comments
-void checkFileVals(int mode, int lineNum, int dataid)
+void checkFileVals(int mode, int lineNum, int dataid, char *fullLine)
 {
 	switch (mode) {
 		case MODE_CRONTAB:
@@ -274,16 +275,14 @@ void checkFileVals(int mode, int lineNum, int dataid)
 				crontabFile[dataid].month == ERRORVALUE ||
 				crontabFile[dataid].weekday == ERRORVALUE) {
 
-				fprintf(stderr, "Read line '%d' to ints as: %d %d %d %d %d", lineNum, crontabFile[dataid].minute, crontabFile[dataid].hour, crontabFile[dataid].date,
-						crontabFile[dataid].month, crontabFile[dataid].weekday);
+				fprintf(stderr, "Line %d of crontab file contains invalid values for fields they represent: '%s'\n", lineNum, fullLine);
 				exit(EXIT_FAILURE);
 			}
 
 			// error handling: since we receive month after the date, we need to check the date for validity in bounds now again after myAtoi
 			int numDaysInMonth = daysInMonth(crontabFile[dataid].month);
 			if (numDaysInMonth < crontabFile[dataid].date) {
-				fprintf(stderr, "Invalid day of the month '%d' for month no. '%d'",
-						crontabFile[dataid].date, crontabFile[dataid].month);
+				fprintf(stderr, "Line %d of crontab file contains invalid values for fields they represent: '%s'\n", lineNum, fullLine);
 				exit(EXIT_FAILURE);
 			}
 
@@ -291,8 +290,7 @@ void checkFileVals(int mode, int lineNum, int dataid)
 		case MODE_ESTIMATES:
 			// error handling: runTime is invalid - 0 or negative
 			if (estimatesFile[dataid].runTime == ERRORVALUE) {
-				fprintf(stderr, "Invalid runtime of '%d' for estimate on line '%d'",
-						estimatesFile[dataid].runTime, lineNum);
+				fprintf(stderr, "Invalid runtime of '%d' line '%d' of estimates file\n", estimatesFile[dataid].runTime, lineNum);
 			}
 			break;
 	}
@@ -307,10 +305,10 @@ void checkFileVals(int mode, int lineNum, int dataid)
 void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int monthProvided)
 {
 	int currentRunningProcs = 0;
-	int processEndTimes[MAX_CMDLINES];
+	int processEndTimes[MAX_SIM_PROCS];
 	
     // initialising processEndTimes to have no running processes
-	for (int pid = 0; pid < MAX_CMDLINES; pid++) {
+	for (int pid = 0; pid < MAX_SIM_PROCS; pid++) {
 		processEndTimes[pid] = -1;
 	}
 
@@ -318,7 +316,7 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
     int minutesInMonth = 60 * 24 * daysInMonth(monthProvided);
 	for (int now = 0; now < minutesInMonth; now++) {
 		// ending processes that terminate now, decrementing relevant counts
-		for (int pid = 0; pid < MAX_CMDLINES; pid++) {
+		for (int pid = 0; pid < MAX_SIM_PROCS; pid++) {
 			if (processEndTimes[pid] == now) {
 				processEndTimes[pid] = -1;
 				currentRunningProcs--;
@@ -328,8 +326,8 @@ void simMonth(int *mostRunProgram, int *totalRunProcs, int *maxRunningProcs, int
 
 		// checking if any process can be starting
 		for (int cronid = 0; cronid < crontabLines; cronid++) {
-			// checking if max number of processes already running
-			if (currentRunningProcs == MAX_CMDLINES) {
+			// checking if max number of simultaneous processes already running
+			if (currentRunningProcs == MAX_SIM_PROCS) {
 				break;
 			}
 
@@ -423,7 +421,7 @@ int firstDayOfMonth(int month)
 // param processEndTimes: the array storing the endTimes of currently running processes
 // return: the processEndTimes index/ process id given to this process
 int invokeProcess(int endTime, int *processEndTimes) {
-	for (int i = 0; i < MAX_CMDLINES; i++) {
+	for (int i = 0; i < MAX_SIM_PROCS; i++) {
 		if (processEndTimes[i] == -1) {
 			processEndTimes[i] = endTime;
 			return i;
